@@ -24,7 +24,16 @@ function App() {
       const state = new GameState();
       state.load();
       gameStateRef.current = state;
-      setUpdateCounter(1); // Trigger initial render
+      
+      // Create initial snapshot
+      setGameStateSnapshot({
+        cookies: state.cookies,
+        cps: state.getCps(),
+        totalCookies: state.totalCookies,
+        clickPower: state.clickPower,
+        buildings: { ...state.buildings },
+        updateCounter: 1
+      });
     }
   }, []);
   
@@ -34,12 +43,14 @@ function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [goldenCookieActive, setGoldenCookieActive] = useState(false);
+  const [gameStateSnapshot, setGameStateSnapshot] = useState(null);
 
   // Game loop
   useEffect(() => {
     if (!gameStateRef.current) return;
     
     let lastTime = Date.now();
+    let lastUIUpdate = Date.now();
     
     const gameLoop = (currentTime) => {
       if (!gameStateRef.current) return;
@@ -69,9 +80,19 @@ function App() {
         gameStateRef.current.save();
       }
       
-      // Update UI every 100ms
-      if (deltaTime > 100) {
-        setUpdateCounter(prev => prev + 1);
+      // Update UI every 1000ms (1 second) to show live cookie generation
+      if (currentTime - lastUIUpdate > 1000) {
+        console.log(`🍪 Cookies: ${gameStateRef.current.cookies}, CPS: ${gameStateRef.current.getCps()}`);
+        // Create a snapshot of the current game state for React to track
+        setGameStateSnapshot({
+          cookies: gameStateRef.current.cookies,
+          cps: gameStateRef.current.getCps(),
+          totalCookies: gameStateRef.current.totalCookies,
+          clickPower: gameStateRef.current.clickPower,
+          buildings: { ...gameStateRef.current.buildings },
+          updateCounter: updateCounter + 1
+        });
+        lastUIUpdate = currentTime;
       }
       
       requestAnimationFrame(gameLoop);
@@ -94,15 +115,31 @@ function App() {
   const handleCookieClick = useCallback(() => {
     if (!gameStateRef.current) return;
     gameStateRef.current.clickCookie();
-    setUpdateCounter(prev => prev + 1);
-  }, []);
+    // Update snapshot immediately
+    setGameStateSnapshot({
+      cookies: gameStateRef.current.cookies,
+      cps: gameStateRef.current.getCps(),
+      totalCookies: gameStateRef.current.totalCookies,
+      clickPower: gameStateRef.current.clickPower,
+      buildings: { ...gameStateRef.current.buildings },
+      updateCounter: updateCounter + 1
+    });
+  }, [updateCounter]);
 
   const handleBuyBuilding = useCallback((buildingId) => {
     if (!gameStateRef.current) return;
     if (gameStateRef.current.buyBuilding(buildingId)) {
-      setUpdateCounter(prev => prev + 1);
+      // Update snapshot immediately
+      setGameStateSnapshot({
+        cookies: gameStateRef.current.cookies,
+        cps: gameStateRef.current.getCps(),
+        totalCookies: gameStateRef.current.totalCookies,
+        clickPower: gameStateRef.current.clickPower,
+        buildings: { ...gameStateRef.current.buildings },
+        updateCounter: updateCounter + 1
+      });
     }
-  }, []);
+  }, [updateCounter]);
 
   const handleBuyUpgrade = useCallback((upgradeId) => {
     if (!gameStateRef.current) return;
@@ -150,7 +187,7 @@ function App() {
   };
 
   // Don't render until game state is initialized
-  if (!gameStateRef.current) {
+  if (!gameStateRef.current || !gameStateSnapshot) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex items-center justify-center">
         <div className="text-center">
@@ -162,7 +199,7 @@ function App() {
   }
 
   // Safety check for corrupted game state
-  if (gameStateRef.current.cookies < 0 || gameStateRef.current.totalCookies < 0) {
+  if (gameStateSnapshot.cookies < 0 || gameStateSnapshot.totalCookies < 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
@@ -231,9 +268,9 @@ function App() {
           {/* Left Column - Counter */}
           <div className="lg:col-span-1">
             <CounterDisplay
-              cookies={gameStateRef.current.cookies}
-              cps={gameStateRef.current.getCps()}
-              totalCookies={gameStateRef.current.totalCookies}
+              cookies={gameStateSnapshot.cookies}
+              cps={gameStateSnapshot.cps}
+              totalCookies={gameStateSnapshot.totalCookies}
             />
           </div>
 
@@ -241,7 +278,7 @@ function App() {
           <div className="lg:col-span-1 flex items-center justify-center">
             <CookieButton
               onClick={handleCookieClick}
-              clickPower={gameStateRef.current.clickPower}
+              clickPower={gameStateSnapshot.clickPower}
             />
           </div>
 

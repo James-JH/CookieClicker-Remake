@@ -8,12 +8,14 @@ const CounterDisplay = ({ cookies, cps, totalCookies }) => {
   const [displayTotal, setDisplayTotal] = useState(totalCookies);
 
   useEffect(() => {
-    const animateValue = (start, end, setter, duration = 1000) => {
+    const animateValue = (start, end, setter, duration = 300) => {
       const startTime = Date.now();
       const animate = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        const current = start + (end - start) * progress;
+        // Use easeOut for smoother animation
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        const current = start + (end - start) * easedProgress;
         setter(current);
         
         if (progress < 1) {
@@ -23,9 +25,10 @@ const CounterDisplay = ({ cookies, cps, totalCookies }) => {
       animate();
     };
 
-    animateValue(displayCookies, cookies, setDisplayCookies);
-    animateValue(displayCps, cps, setDisplayCps);
-    animateValue(displayTotal, totalCookies, setDisplayTotal);
+    // Faster animation for cookie clicks (300ms), slower for CPS/total (800ms)
+    animateValue(displayCookies, cookies, setDisplayCookies, 300);
+    animateValue(displayCps, cps, setDisplayCps, 800);
+    animateValue(displayTotal, totalCookies, setDisplayTotal, 800);
   }, [cookies, cps, totalCookies]);
 
   return (
@@ -40,9 +43,16 @@ const CounterDisplay = ({ cookies, cps, totalCookies }) => {
         <div className="text-4xl md:text-5xl font-bold text-amber-600">
           <motion.span
             key={`cookies-${Math.floor(cookies)}`}
-            initial={{ scale: 1.1, opacity: 0.8 }}
+            initial={{ scale: 1.05, opacity: 0.9 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.2 }}
+            transition={{ 
+              duration: 0.3,
+              ease: "easeOut",
+              type: "spring",
+              stiffness: 300,
+              damping: 20
+            }}
+            className="inline-block"
           >
             {formatNumber(displayCookies)} cookies
           </motion.span>

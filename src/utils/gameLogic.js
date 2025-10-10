@@ -25,6 +25,14 @@ export const BUILDINGS = [
     description: 'Grows cookie plants.'
   },
   {
+    id: 'steroids',
+    name: 'Steroids',
+    icon: '💉',
+    baseCost: 5000,
+    baseCps: 20,
+    description: 'Gives grandmas super strength!'
+  },
+  {
     id: 'factory',
     name: 'Factory',
     icon: '🏭',
@@ -116,6 +124,26 @@ export const UPGRADES = [
     effect: 'buildingBonus',
     value: 0.5,
     requirement: { type: 'buildings', amount: 25 }
+  },
+  {
+    id: 'grandma-steroids',
+    name: 'Grandma Steroids',
+    icon: '👵💉',
+    cost: 50000,
+    description: 'Grandmas work 50% more efficiently when you have steroids.',
+    effect: 'grandmaBonus',
+    value: 0.5,
+    requirement: { type: 'buildings', amount: 5, building: 'steroids' }
+  },
+  {
+    id: 'advanced-steroids',
+    name: 'Advanced Steroids',
+    icon: '💉💪',
+    cost: 500000,
+    description: 'Steroids provide 2x more cookies per second.',
+    effect: 'steroidBonus',
+    value: 2,
+    requirement: { type: 'buildings', amount: 10, building: 'steroids' }
   }
 ];
 
@@ -189,8 +217,11 @@ export class GameState {
     this.achievements = new Set();
     this.clickPower = 1;
     this.buildingBonus = 0;
+    this.grandmaBonus = 0;
+    this.steroidBonus = 1;
     this.startTime = Date.now();
     this.lastSave = Date.now();
+    this.lastCursorClick = Date.now(); // Track cursor auto-clicks
     
     // Initialize buildings
     BUILDINGS.forEach(building => {
@@ -202,8 +233,22 @@ export class GameState {
   getCps() {
     let cps = 0;
     BUILDINGS.forEach(building => {
-      const count = this.buildings[building.id];
-      cps += count * building.baseCps * (1 + this.buildingBonus);
+      if (building.id !== 'cursor') { // Exclude cursor from CPS calculation
+        const count = this.buildings[building.id] || 0;
+        let buildingCps = count * building.baseCps * (1 + this.buildingBonus);
+        
+        // Apply grandma bonus if they have steroids
+        if (building.id === 'grandma' && (this.buildings.steroids || 0) > 0) {
+          buildingCps *= (1 + this.grandmaBonus);
+        }
+        
+        // Apply steroid bonus
+        if (building.id === 'steroids') {
+          buildingCps *= this.steroidBonus;
+        }
+        
+        cps += buildingCps;
+      }
     });
     return cps;
   }
@@ -246,6 +291,10 @@ export class GameState {
       this.clickPower *= upgrade.value;
     } else if (upgrade.effect === 'buildingBonus') {
       this.buildingBonus += upgrade.value;
+    } else if (upgrade.effect === 'grandmaBonus') {
+      this.grandmaBonus += upgrade.value;
+    } else if (upgrade.effect === 'steroidBonus') {
+      this.steroidBonus *= upgrade.value;
     }
 
     return true;
@@ -258,6 +307,10 @@ export class GameState {
       case 'cookies':
         return this.totalCookies >= req.amount;
       case 'buildings':
+        if (req.building) {
+          // Check specific building requirement
+          return this.buildings[req.building] >= req.amount;
+        }
         return Object.values(this.buildings).reduce((a, b) => a + b, 0) >= req.amount;
       case 'clicks':
         return this.clicks >= req.amount;
@@ -310,7 +363,51 @@ export class GameState {
 
   // Generate cookies from buildings
   generateCookies(deltaTime) {
-    const cps = this.getCps();
+    const currentTime = Date.now();
+    
+    // Handle cursor auto-clicks (every 3 seconds for testing)
+    const cursorCount = this.buildings.cursor || 0;
+    if (cursorCount > 0) {
+      const timeSinceLastCursorClick = currentTime - this.lastCursorClick;
+      const cursorInterval = 3000; // 3 seconds for testing
+      
+      if (timeSinceLastCursorClick >= cursorInterval) {
+        // Auto-click for each cursor
+        const autoClicks = Math.floor(timeSinceLastCursorClick / cursorInterval);
+        const cookiesFromCursors = autoClicks * cursorCount * this.clickPower;
+        
+        this.cookies += cookiesFromCursors;
+        this.totalCookies += cookiesFromCursors;
+        this.clicks += autoClicks * cursorCount;
+        
+        this.lastCursorClick = currentTime;
+        
+        // Log for debugging
+        console.log(`🖱️ Cursor auto-clicked! +${cookiesFromCursors} cookies (${cursorCount} cursors)`);
+      }
+    }
+    
+    // Handle CPS-based buildings (all except cursor)
+    let cps = 0;
+    BUILDINGS.forEach(building => {
+      if (building.id !== 'cursor') { // Exclude cursor from CPS calculation
+        const count = this.buildings[building.id] || 0;
+        let buildingCps = count * building.baseCps * (1 + this.buildingBonus);
+        
+        // Apply grandma bonus if they have steroids
+        if (building.id === 'grandma' && (this.buildings.steroids || 0) > 0) {
+          buildingCps *= (1 + this.grandmaBonus);
+        }
+        
+        // Apply steroid bonus
+        if (building.id === 'steroids') {
+          buildingCps *= this.steroidBonus;
+        }
+        
+        cps += buildingCps;
+      }
+    });
+    
     const cookiesGenerated = (cps * deltaTime) / 1000;
     
     // Safety check to prevent negative cookies
@@ -339,7 +436,10 @@ export class GameState {
       achievements: Array.from(this.achievements),
       clickPower: this.clickPower,
       buildingBonus: this.buildingBonus,
+      grandmaBonus: this.grandmaBonus,
+      steroidBonus: this.steroidBonus,
       startTime: this.startTime,
+      lastCursorClick: this.lastCursorClick,
       lastSave: Date.now()
     };
     localStorage.setItem('cookieClickerSave', JSON.stringify(saveData));
@@ -359,7 +459,10 @@ export class GameState {
       this.achievements = new Set(data.achievements || []);
       this.clickPower = data.clickPower || 1;
       this.buildingBonus = data.buildingBonus || 0;
+      this.grandmaBonus = data.grandmaBonus || 0;
+      this.steroidBonus = data.steroidBonus || 1;
       this.startTime = data.startTime || Date.now();
+      this.lastCursorClick = data.lastCursorClick || Date.now();
       this.lastSave = data.lastSave || Date.now();
       return true;
     }
@@ -376,7 +479,10 @@ export class GameState {
     this.achievements.clear();
     this.clickPower = 1;
     this.buildingBonus = 0;
+    this.grandmaBonus = 0;
+    this.steroidBonus = 1;
     this.startTime = Date.now();
+    this.lastCursorClick = Date.now();
     this.lastSave = Date.now();
     
     BUILDINGS.forEach(building => {

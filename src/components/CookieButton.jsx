@@ -28,6 +28,7 @@ const CookieButton = ({ onClick, clickPower, disabled = false }) => {
       setFloatingTexts(prev => prev.filter(text => text.id !== newText.id));
     }, 1000);
     
+    // Call onClick immediately for instant feedback
     onClick();
   };
 
@@ -69,7 +70,7 @@ const CookieButton = ({ onClick, clickPower, disabled = false }) => {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         whileHover={!disabled ? { scale: 1.05 } : {}}
-        whileTap={!disabled ? { scale: 0.95 } : {}}
+        whileTap={!disabled ? { scale: 0.9 } : {}}
         animate={{
           rotate: [0, 2, -2, 0],
         }}
@@ -118,11 +119,11 @@ const CookieButton = ({ onClick, clickPower, disabled = false }) => {
         <motion.div
           className="absolute inset-0 rounded-full bg-yellow-300 opacity-0"
           animate={{
-            opacity: [0, 0.3, 0],
-            scale: [1, 1.1, 1],
+            opacity: [0, 0.4, 0],
+            scale: [1, 1.15, 1],
           }}
           transition={{
-            duration: 0.3,
+            duration: 0.2,
             ease: "easeOut"
           }}
         />
