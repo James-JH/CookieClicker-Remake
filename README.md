@@ -184,6 +184,7 @@ This project is licensed under the ISC License.
 - Inspired by the original Cookie Clicker by Orteil
 - Built with modern web technologies
 - Designed for optimal user experience
+- Cursor image assets referenced from the original game (used here as a small homage)
 
 ---
 

@@ -279,6 +279,7 @@ function App() {
             <CookieButton
               onClick={handleCookieClick}
               clickPower={gameStateSnapshot.clickPower}
+              cursorCount={gameStateSnapshot.buildings.cursor || 0}
             />
           </div>
 

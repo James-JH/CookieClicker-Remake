@@ -1,10 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatNumber } from '../utils/gameLogic';
+import MousePointer from './MousePointer';
 
-const CookieButton = ({ onClick, clickPower, disabled = false }) => {
+const CookieButton = ({ onClick, clickPower, disabled = false, cursorCount = 0 }) => {
   const [floatingTexts, setFloatingTexts] = useState([]);
   const [isHovered, setIsHovered] = useState(false);
+  const [pointerClicking, setPointerClicking] = useState(new Set());
+
+  // Simulate mouse pointer clicks when cursors are owned
+  useEffect(() => {
+    if (cursorCount === 0) return;
+
+    const interval = setInterval(() => {
+      // Randomly select a pointer to click
+      const randomPointer = Math.floor(Math.random() * cursorCount);
+      setPointerClicking(prev => new Set([...prev, randomPointer]));
+      
+      // Remove clicking state after animation
+      setTimeout(() => {
+        setPointerClicking(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(randomPointer);
+          return newSet;
+        });
+      }, 300);
+    }, 3000); // Every 3 seconds to match cursor auto-click timing
+
+    return () => clearInterval(interval);
+  }, [cursorCount]);
 
   const handleClick = (e) => {
     if (disabled) return;
@@ -35,6 +59,20 @@ const CookieButton = ({ onClick, clickPower, disabled = false }) => {
 
   return (
     <div className="relative flex items-center justify-center">
+      {/* Mouse Pointers */}
+      {cursorCount > 0 && (
+        <div className="absolute inset-0 pointer-events-none">
+          {Array.from({ length: cursorCount }, (_, index) => (
+            <MousePointer
+              key={index}
+              index={index}
+              totalCursors={cursorCount}
+              isClicking={pointerClicking.has(index)}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Floating text animations */}
       <AnimatePresence>
         {floatingTexts.map((text) => (
